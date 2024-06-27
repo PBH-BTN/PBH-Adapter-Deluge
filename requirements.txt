@@ -1,0 +1,2 @@
+deluge
+libtorrent==1.2.19
