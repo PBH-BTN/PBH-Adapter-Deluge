@@ -28,4 +28,16 @@
 
 ## 在 PBH 中配置
 
-TODO
+点击 PBH 的新建下载器按钮，弹出的对话框中选择 Deluge 下载器。
+
+![image](https://github.com/PBH-BTN/PBH-Adapter-Deluge/assets/30802565/00d0f5bb-793f-4364-a18f-9e7dc79817ec)
+
+* 名称：起一个自己喜欢的名字
+* 地址：填写你的 Deluge WebUI 地址
+* 密码：填写你的 Deluge WebUI 密码
+* RPC URL：如果不知道这是什么，请填写 `/json`
+* 增量封禁：建议启用
+* HTTP 版本：保持默认
+* 验证 SSL 证书：根据实际情况填写，如果不知道这是什么，请保持默认
+
+
