@@ -59,7 +59,8 @@ class Gtk3UI(Gtk3PluginBase):
         self.update_text_blocklist(blocklist)
 
     def update_text_blocklist(self, blocklist):
-        if not blocklist:
+        if not blocklist or len(blocklist) == 0:
+            self.builder.get_object("text_blocklist").get_buffer().set_text('', 0)
             return
         text = '\n'.join([ip for ip in blocklist])
         self.builder.get_object("text_blocklist").get_buffer().set_text(text, len(text))
