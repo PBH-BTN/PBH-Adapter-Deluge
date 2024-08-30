@@ -99,6 +99,10 @@ class Core(CorePluginBase):
             info["size"] = torrent.status.total_wanted
             info["upload_payload_rate"] = torrent.status.upload_payload_rate
             info["download_payload_rate"] = torrent.status.download_payload_rate
+            # LT torrent_info
+            torrent_info = torrent.handle.torrent_file()
+            info["priv"] = torrent_info.priv()
+            # LT peer_info
             peers = torrent.handle.get_peer_info()
             peer_infos = []
             for peer in peers:
