@@ -21,7 +21,7 @@ from deluge.plugins.pluginbase import CorePluginBase
 from deluge.ui.client import client
 from datetime import datetime
 
-from deluge_peerbanhelperadapter.stats import SessionStatus, PersistenceStatus, LT_STATUS_NAMES
+from deluge_peerbanhelperadapter.model.stats import SessionStatus, PersistenceStatus, LT_STATUS_NAMES
 
 log = logging.getLogger(__name__)
 
