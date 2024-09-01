@@ -22,6 +22,7 @@ from deluge.ui.client import client
 from datetime import datetime
 
 from deluge_peerbanhelperadapter.model.stats import SessionStatus, PersistenceStatus, LT_STATUS_NAMES
+from deluge_peerbanhelperadapter.model.torrent import ActiveTorrent, Peer, Torrent
 
 log = logging.getLogger(__name__)
 
@@ -123,75 +124,98 @@ class Core(CorePluginBase):
         filter_dict["state"] = ["Active"]
         torrent_ids = self.filtermanager.filter_torrent_ids(filter_dict)
 
-        infos = []
+        active_torrents = []
 
         for torrent_id in torrent_ids:
-            info = {}
-            torrent = self.torrentmanager[torrent_id]
-            info["id"] = torrent_id
-            info["name"] = torrent.get_name()
-            info["info_hash"] = torrent_id
-            info["progress"] = torrent.get_progress()
-            info["size"] = torrent.status.total_wanted
-            info["upload_payload_rate"] = torrent.status.upload_payload_rate
-            info["download_payload_rate"] = torrent.status.download_payload_rate
+            torrent = ActiveTorrent()
+            deluge_torrent = self.torrentmanager[torrent_id]
+            torrent.id = torrent_id
+            torrent.name = deluge_torrent.get_name()
+            torrent.info_hash = torrent_id
+            torrent.progress = deluge_torrent.get_progress()
+            torrent.size = deluge_torrent.status.total_wanted
+            torrent.upload_payload_rate = deluge_torrent.status.upload_payload_rate
+            torrent.download_payload_rate = deluge_torrent.status.download_payload_rate
             # LT torrent_info
-            torrent_info = torrent.handle.torrent_file()
-            info["priv"] = torrent_info.priv()
+            torrent_info = deluge_torrent.handle.torrent_file()
+            torrent.priv = torrent_info.priv()
             # LT peer_info
-            peers = torrent.handle.get_peer_info()
-            peer_infos = []
-            for peer in peers:
-                log.debug("peer_id: %s", str(peer.pid))
+            lt_peers = deluge_torrent.handle.get_peer_info()
+            peers = []
+            for lt_peer in lt_peers:
+                log.debug("peer_id: %s", str(lt_peer.pid))
                 # 必须排除半连接状态节点，否则可能进入等待阻塞
-                if peer.flags & peer.connecting or peer.flags & peer.handshake:
+                if lt_peer.flags & lt_peer.connecting or lt_peer.flags & lt_peer.handshake:
                     continue
                 try:
-                    client_name = decode_bytes(peer.client)
+                    client_name = decode_bytes(lt_peer.client)
                 except UnicodeDecodeError:
                     client_name = "unknown"
 
-                peer_info = {
-                    "ip": peer.ip[0],
-                    "port": peer.ip[1],
-                    "peer_id": str(peer.pid),
-                    "client_name": client_name,
-                    "up_speed": peer.up_speed,  # 上传速度
-                    "down_speed": peer.down_speed,  # 下载速度
-                    "payload_up_speed": peer.payload_up_speed,  # 有效上传速度
-                    "payload_down_speed": peer.payload_down_speed,  # 有效下载速度
-                    "total_upload": peer.total_upload,  # 上传量
-                    "total_download": peer.total_download,  # 下载量
-                    "progress": peer.progress,  # 进度
-                    "flags": peer.flags,
-                    "source": peer.source,
-                    "local_endpoint_ip": peer.local_endpoint[0],
-                    "local_endpoint_port": peer.local_endpoint[1],
-                    "queue_bytes": peer.queue_bytes,  # 队列字节数
-                    "request_timeout": peer.request_timeout,  # 请求超时
-                    "num_hashfails": peer.num_hashfails,  # 哈希失败次数
-                    "download_queue_length": peer.download_queue_length,  # 下载队列长度
-                    "upload_queue_length": peer.upload_queue_length,  # 上传队列长度
-                    "failcount": peer.failcount,  # 失败次数
-                    "downloading_block_index": peer.downloading_block_index,  # 下载块索引
-                    "downloading_progress": peer.downloading_progress,  # 下载进度
-                    "downloading_total": peer.downloading_total,  # 下载总量
-                    "connection_type": peer.connection_type,  # 连接类型
-                    "send_quota": peer.send_quota,  # 发送配额
-                    "receive_quota": peer.receive_quota,  # 接收配额
-                    "rtt": peer.rtt,  # 往返时间
-                    "num_pieces": peer.num_pieces,  # 块数
-                    "download_rate_peak": peer.download_rate_peak,  # 下载速率峰值
-                    "upload_rate_peak": peer.upload_rate_peak,  # 上传速率峰值
-                    "progress_ppm": peer.progress_ppm,  # 进度每分钟百分比
-                }
+                peer = Peer(
+                    ip=lt_peer.ip[0],
+                    port=lt_peer.ip[1],
+                    peer_id=str(lt_peer.pid),
+                    client_name=client_name,
+                    up_speed=lt_peer.up_speed,
+                    down_speed=lt_peer.down_speed,
+                    payload_up_speed=lt_peer.payload_up_speed,
+                    payload_down_speed=lt_peer.payload_down_speed,
+                    total_upload=lt_peer.total_upload,
+                    total_download=lt_peer.total_download,
+                    progress=lt_peer.progress,
+                    flags=lt_peer.flags,
+                    source=lt_peer.source,
+                    local_endpoint_ip=lt_peer.local_endpoint[0],
+                    local_endpoint_port=lt_peer.local_endpoint[1],
+                    queue_bytes=lt_peer.queue_bytes,
+                    request_timeout=lt_peer.request_timeout,
+                    num_hashfails=lt_peer.num_hashfails,
+                    download_queue_length=lt_peer.download_queue_length,
+                    upload_queue_length=lt_peer.upload_queue_length,
+                    failcount=lt_peer.failcount,
+                    downloading_block_index=lt_peer.downloading_block_index,
+                    downloading_progress=lt_peer.downloading_progress,
+                    downloading_total=lt_peer.downloading_total,
+                    connection_type=lt_peer.connection_type,
+                    send_quota=lt_peer.send_quota,
+                    receive_quota=lt_peer.receive_quota,
+                    rtt=lt_peer.rtt,
+                    num_pieces=lt_peer.num_pieces,
+                    download_rate_peak=lt_peer.download_rate_peak,
+                    upload_rate_peak=lt_peer.upload_rate_peak,
+                    progress_ppm=lt_peer.progress_ppm,
+                )
 
-                peer_infos.append(peer_info)
+                peers.append(peer)
 
-            info["peers"] = peer_infos
-            infos.append(info)
+            torrent.peers = peers
+            active_torrents.append(torrent.dist())
 
-        return infos
+        return active_torrents
+
+    @export
+    def get_torrents_info(self):
+        """返回所有种子的列表"""
+        torrent_ids = self.filtermanager.filter_torrent_ids(filter_dict={})
+
+        torrents = []
+
+        for torrent_id in torrent_ids:
+            torrent = Torrent()
+            deluge_torrent = self.torrentmanager[torrent_id]
+            torrent.id = torrent_id
+            torrent.name = deluge_torrent.get_name()
+            torrent.info_hash = torrent_id
+            torrent.progress = deluge_torrent.get_progress()
+            torrent.size = deluge_torrent.status.total_wanted
+            # LT torrent_info
+            torrent_info = deluge_torrent.handle.torrent_file()
+            torrent.priv = torrent_info.priv()
+
+            torrents.append(torrent.dist())
+
+        return torrents
 
     @export
     def get_blocklist(self):

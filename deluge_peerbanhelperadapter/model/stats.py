@@ -1,6 +1,8 @@
 from dataclasses import dataclass, asdict, fields
 from datetime import datetime
 
+from deluge_peerbanhelperadapter.model.base import BaseModel
+
 LT_STATUS_NAMES = [
     "net.sent_payload_bytes",
     "net.sent_bytes",
@@ -24,7 +26,7 @@ LT_STATUS_NAMES = [
 
 
 @dataclass
-class PersistenceStatus:
+class PersistenceStatus(BaseModel):
     # 最后统计时间戳
     stats_last_timestamp: int = int(datetime.now().timestamp())
 
@@ -80,9 +82,6 @@ class PersistenceStatus:
         return NotImplemented
 
     def persistence_dist(self) -> dict:
-        return asdict(self)
-
-    def dist(self) -> dict:
         return asdict(self)
 
 
