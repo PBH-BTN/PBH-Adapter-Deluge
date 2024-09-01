@@ -16,24 +16,41 @@ from deluge.core.filtermanager import FilterManager
 from deluge.core.torrentmanager import TorrentManager
 import deluge.configmanager
 from deluge.core.rpcserver import export
-from deluge.plugins.pluginbase import CorePluginBase
 from deluge.common import decode_bytes
+from deluge.plugins.pluginbase import CorePluginBase
+from deluge.ui.client import client
+from datetime import datetime
+
+from deluge_peerbanhelperadapter.stats import SessionStatus, PersistenceStatus, LT_STATUS_NAMES
 
 log = logging.getLogger(__name__)
 
+CONF_KEY_BLOCKLIST = "blocklist"
+CONF_KEY_HISTORY_STATUS = "history_status"
+CONF_KEY_SESSION_STATUS = "session_status"
+
 DEFAULT_PREFS = {
-    "blocklist": [],
+    CONF_KEY_BLOCKLIST: [],
+    CONF_KEY_HISTORY_STATUS: {},
+    CONF_KEY_SESSION_STATUS: {},
 }
 
 
 class Core(CorePluginBase):
-    filtermanager: FilterManager = None
-    torrentmanager: TorrentManager = None
+    # 当前会话状态信息
+    session_status: SessionStatus
+    # 历史状态信息
+    history_status: PersistenceStatus
+
+    filtermanager: FilterManager
+    torrentmanager: TorrentManager
 
     blocklist: set[str] = set()
 
     def enable(self):
         log.debug("PeerBanHelperAdapter: Plugin enabled...")
+
+        self.session_status = SessionStatus()
 
         # 获取 libtorrent.session
         self.session = component.get("Core").session
@@ -46,10 +63,23 @@ class Core(CorePluginBase):
             "peerbanhelper_adapter.conf", DEFAULT_PREFS
         )
 
-        if "blocklist" not in self.config:
-            self.config["blocklist"] = []
+        if CONF_KEY_BLOCKLIST not in self.config:
+            self.config[CONF_KEY_BLOCKLIST] = []
+        if CONF_KEY_HISTORY_STATUS not in self.config:
+            self.config[CONF_KEY_HISTORY_STATUS] = {}
+        if CONF_KEY_SESSION_STATUS not in self.config:
+            self.config[CONF_KEY_SESSION_STATUS] = {}
 
-        self.blocklist = set(self.config["blocklist"])
+        self.blocklist = set(self.config[CONF_KEY_BLOCKLIST])
+        self.history_status = PersistenceStatus(**self.config[CONF_KEY_HISTORY_STATUS])
+        session_status = self.config[CONF_KEY_SESSION_STATUS]
+
+        if len(session_status) > 0:
+            # 异常中断后恢复数据
+            self.history_status = self.history_status + session_status
+            self.config[CONF_KEY_HISTORY_STATUS] = self.history_status.persistence_dist()
+            self.config[CONF_KEY_SESSION_STATUS] = {}
+            self.config.save()
 
         # 恢复 blocklist
         ip_filter = self.session.get_ip_filter()
@@ -58,7 +88,13 @@ class Core(CorePluginBase):
         self.session.set_ip_filter(ip_filter)
 
     def disable(self):
-        self.config["blocklist"] = list(self.blocklist)
+        self.config[CONF_KEY_BLOCKLIST] = list(self.blocklist)
+
+        session_status = PersistenceStatus(**self.session_status.persistence_dist())
+        self.history_status = self.history_status + session_status
+        self.config[CONF_KEY_HISTORY_STATUS] = self.history_status.persistence_dist()
+        self.config[CONF_KEY_SESSION_STATUS] = {} # 清空
+
         self.config.save()
 
     def update(self):
@@ -75,7 +111,7 @@ class Core(CorePluginBase):
     def get_config(self):
         """Returns the config dictionary"""
         status = {}
-        status["blocklist"] = self.blocklist
+        status[CONF_KEY_BLOCKLIST] = self.blocklist
         return status
 
     @export
@@ -237,3 +273,80 @@ class Core(CorePluginBase):
             if ip in self.blocklist:
                 self.blocklist.remove(ip)
         return {}
+
+    @export
+    def get_history_status(self):
+        return self.history_status.dist()
+
+    @export
+    def get_session_totals(self):
+        """获取会话统计信息"""
+
+        def update_status(lt_stats):
+            now_datetime = datetime.now()
+            stats_last_datetime = datetime.fromtimestamp(self.session_status.stats_last_timestamp)
+            # 计算时间间隔
+            interval = (now_datetime - stats_last_datetime).total_seconds()
+            if interval <= 0:
+                return
+
+            self.session_status.stats_last_timestamp = int(now_datetime.timestamp())
+
+            ip_overhead_download = lt_stats.get('net.recv_ip_overhead_bytes')
+            ip_overhead_upload = lt_stats['net.sent_ip_overhead_bytes']
+            total_download = lt_stats['net.recv_bytes'] + ip_overhead_download
+            total_upload = lt_stats['net.sent_bytes'] + ip_overhead_upload
+            total_payload_download = lt_stats['net.recv_payload_bytes']
+            total_payload_upload = lt_stats['net.sent_payload_bytes']
+            tracker_download = lt_stats['net.recv_tracker_bytes']
+            tracker_upload = lt_stats['net.sent_tracker_bytes']
+            dht_download = lt_stats['dht.dht_bytes_in']
+            dht_upload = lt_stats['dht.dht_bytes_out']
+
+            def calc_rate(previous, current) -> float:
+                assert current >= previous, "当前值应当大于或等于前一值"
+                assert interval > 0, "间隔应为正数"
+                return (current - previous) / interval
+
+            self.session_status.payload_download_rate = calc_rate(self.session_status.total_payload_download, total_payload_download)
+            self.session_status.payload_upload_rate = calc_rate(self.session_status.total_payload_upload, total_payload_upload)
+            self.session_status.download_rate = calc_rate(self.session_status.total_download, total_download)
+            self.session_status.upload_rate = calc_rate(self.session_status.total_upload, total_upload)
+            self.session_status.ip_overhead_download_rate = calc_rate(self.session_status.ip_overhead_download, ip_overhead_download)
+            self.session_status.ip_overhead_upload_rate = calc_rate(self.session_status.ip_overhead_upload, ip_overhead_upload)
+            self.session_status.dht_download_rate = calc_rate(self.session_status.dht_download, dht_download)
+            self.session_status.dht_upload_rate = calc_rate(self.session_status.dht_upload, dht_upload)
+            self.session_status.tracker_download_rate = calc_rate(self.session_status.tracker_download, tracker_download)
+            self.session_status.tracker_upload_rate = calc_rate(self.session_status.tracker_upload, tracker_upload)
+
+            self.session_status.total_payload_download = total_payload_download
+            self.session_status.total_payload_upload = total_payload_upload
+            self.session_status.total_download = total_download
+            self.session_status.total_upload = total_upload
+            self.session_status.ip_overhead_download = ip_overhead_download
+            self.session_status.ip_overhead_upload = ip_overhead_upload
+            self.session_status.tracker_download = tracker_download
+            self.session_status.tracker_upload = tracker_upload
+            self.session_status.dht_download = dht_download
+            self.session_status.dht_upload = dht_upload
+
+            # 被丢弃的重复下载字节数（从不同的对等节点下载） + 因哈希校验失败而丢弃的已下载字节数
+            self.session_status.total_wasted = lt_stats['net.recv_redundant_bytes'] + lt_stats['net.recv_failed_bytes']
+            self.session_status.dht_nodes = lt_stats['dht.dht_nodes']
+            self.session_status.disk_read_queue = lt_stats['peer.num_peers_up_disk']
+            self.session_status.disk_write_queue = lt_stats['peer.num_peers_down_disk']
+            self.session_status.peers_count = lt_stats["peer.num_peers_connected"]
+
+            # 30分钟写盘一次
+            if interval > 1800:
+                self.config[CONF_KEY_SESSION_STATUS] = self.session_status.persistence_dist()
+                self.config.save()
+
+        lt_status_call = client.core.get_session_status(LT_STATUS_NAMES)
+        lt_status_call.addCallback(update_status)
+
+        # 合并会话状态和历史状态
+        status = SessionStatus(**self.session_status.dist())
+        status = status + self.history_status
+
+        return status.dist()
