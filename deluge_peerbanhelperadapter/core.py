@@ -133,7 +133,7 @@ class Core(CorePluginBase):
             torrent.name = deluge_torrent.get_name()
             torrent.info_hash = torrent_id
             torrent.progress = deluge_torrent.get_progress()
-            torrent.completed_size = deluge_torrent.status.total_wanted_done
+            torrent.completed_size = deluge_torrent.status.total_done
             torrent.upload_payload_rate = deluge_torrent.status.upload_payload_rate
             torrent.download_payload_rate = deluge_torrent.status.download_payload_rate
             # LT torrent_info
@@ -209,7 +209,7 @@ class Core(CorePluginBase):
             torrent.name = deluge_torrent.get_name()
             torrent.info_hash = torrent_id
             torrent.progress = deluge_torrent.get_progress()
-            torrent.completed_size = deluge_torrent.status.total_wanted_done
+            torrent.completed_size = deluge_torrent.status.total_done
             # LT torrent_info
             torrent_info = deluge_torrent.handle.torrent_file()
             torrent.priv = torrent_info.priv()
