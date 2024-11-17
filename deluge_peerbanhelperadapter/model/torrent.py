@@ -80,7 +80,7 @@ class Torrent(BaseModel):
     # 种子大小
     size: int = 0
 
-    # 已下载的大小
+    # 种子实际做种大小
     completed_size: int = 0
 
     # 是否为私有种子
