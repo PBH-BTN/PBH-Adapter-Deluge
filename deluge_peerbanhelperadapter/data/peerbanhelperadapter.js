@@ -51,7 +51,7 @@ Deluge.ux.preferences.PeerBanHelperAdapterPage = Ext.extend(Ext.Panel, {
                                 dataIndex: 'ip',
                                 sortable: true,
                                 hideable: false,
-                                editable: true,
+                                editable: false,
                                 editor: {
                                     xtype: 'textfield',
                                 },
@@ -67,9 +67,6 @@ Deluge.ux.preferences.PeerBanHelperAdapterPage = Ext.extend(Ext.Panel, {
                         fields: [{ name: 'ip' }],
                     }),
                     listeners: {
-                        afteredit: function (e) {
-                            e.record.commit();
-                        },
                     },
                     setEmptyText: function (text) {
                         if (this.viewReady) {
