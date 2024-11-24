@@ -12,7 +12,7 @@
 
 Ext.ns('Deluge.ux.preferences');
 
-Deluge.ux.preferences.BlocklistPage = Ext.extend(Ext.Panel, {
+Deluge.ux.preferences.PeerBanHelperAdapterPage = Ext.extend(Ext.Panel, {
     title: _('PeerBanHelperAdapter'),
     header: false,
     layout: 'fit',
@@ -20,7 +20,7 @@ Deluge.ux.preferences.BlocklistPage = Ext.extend(Ext.Panel, {
     autoScroll: true,
 
     initComponent: function () {
-        Deluge.ux.preferences.BlocklistPage.superclass.initComponent.call(this);
+        Deluge.ux.preferences.PeerBanHelperAdapterPage.superclass.initComponent.call(this);
 
         this.BlocklistFset = this.add({
             xtype: 'fieldset',
@@ -133,7 +133,7 @@ Deluge.ux.preferences.BlocklistPage = Ext.extend(Ext.Panel, {
     onDestroy: function () {
         Ext.TaskMgr.stop(this.updateTask);
 
-        Deluge.ux.preferences.BlocklistPage.superclass.onDestroy.call(this);
+        Deluge.ux.preferences.PeerBanHelperAdapterPage.superclass.onDestroy.call(this);
     },
 });
 
@@ -146,7 +146,7 @@ PeerBanHelperAdapterPlugin = Ext.extend(Deluge.Plugin, {
 
     onEnable: function () {
         this.prefsPage = deluge.preferences.addPage(
-            new Deluge.ux.preferences.BlocklistPage()
+            new Deluge.ux.preferences.PeerBanHelperAdapterPage()
         );
     },
 });
