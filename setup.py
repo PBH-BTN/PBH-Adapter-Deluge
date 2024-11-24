@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2024 azicen <chenjiazi2000@outlook.com>
+# Copyright (C) 2024 azicen <chenjiazi@aliyun.com>
 #
 # Basic plugin template created by the Deluge Team.
 #
@@ -10,8 +10,8 @@ from setuptools import find_packages, setup
 
 __plugin_name__ = 'PeerBanHelperAdapter'
 __author__ = 'azicen'
-__author_email__ = 'chenjiazi2000@outlook.com'
-__version__ = '1.1.0'
+__author_email__ = 'chenjiazi@aliyun.com'
+__version__ = '1.2.0'
 __url__ = 'https://github.com/PBH-BTN/PBH-Adapter-Deluge'
 __license__ = 'MIT license'
 __description__ = 'PeerBanHelper Deluge Adapter Plugin.'
