@@ -11,7 +11,7 @@ from setuptools import find_packages, setup
 __plugin_name__ = 'PeerBanHelperAdapter'
 __author__ = 'azicen'
 __author_email__ = 'chenjiazi@aliyun.com'
-__version__ = '1.2.0'
+__version__ = '1.3.0'
 __url__ = 'https://github.com/PBH-BTN/PBH-Adapter-Deluge'
 __license__ = 'MIT license'
 __description__ = 'PeerBanHelper Deluge Adapter Plugin.'

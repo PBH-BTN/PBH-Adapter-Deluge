@@ -12,6 +12,7 @@ import logging
 
 from deluge._libtorrent import lt
 import deluge.component as component
+from deluge.core.core import Core as DelugeCore
 from deluge.core.filtermanager import FilterManager
 from deluge.core.torrentmanager import TorrentManager
 import deluge.configmanager
@@ -21,6 +22,8 @@ from deluge.plugins.pluginbase import CorePluginBase
 from deluge.ui.client import client
 from datetime import datetime
 
+from deluge_peerbanhelperadapter.entity.network import Network
+from deluge_peerbanhelperadapter.model.network import NetworkData
 from deluge_peerbanhelperadapter.model.stats import SessionStatus, PersistenceStatus, LT_STATUS_NAMES
 from deluge_peerbanhelperadapter.model.torrent import ActiveTorrent, Peer, Torrent
 
@@ -38,6 +41,8 @@ DEFAULT_PREFS = {
 
 
 class Core(CorePluginBase):
+    # deluge
+    deluge_core: DelugeCore
     # 当前会话状态信息
     session_status: SessionStatus
     # 历史状态信息
@@ -53,12 +58,25 @@ class Core(CorePluginBase):
 
         self.session_status = SessionStatus()
 
+        deluge_core = component.get("Core")
+        if not isinstance(deluge_core, DelugeCore):
+            raise TypeError(f"Expected data to be of type Core, but got {type(deluge_core)}")
+        self.deluge_core = deluge_core
+
         # 获取 libtorrent.session
-        self.session = component.get("Core").session
+        self.session = self.deluge_core.session
+
         # 获取 deluge.core.filtermanager.FilterManager 实例
-        self.filtermanager = component.get("FilterManager")
+        filtermanager = component.get("FilterManager")
+        if not isinstance(filtermanager, FilterManager):
+            raise TypeError(f"Expected data to be of type FilterManager, but got {type(self.filtermanager)}")
+        self.filtermanager = filtermanager
+
         # 获取 deluge.core.torrentmanager.TorrentManager 实例
-        self.torrentmanager = component.get("TorrentManager")
+        torrentmanager = component.get("TorrentManager")
+        if not isinstance(torrentmanager, TorrentManager):
+            raise TypeError(f"Expected data to be of type TorrentManager, but got {type(self.torrentmanager)}")
+        self.torrentmanager = torrentmanager
 
         self.config = deluge.configmanager.ConfigManager(
             "peerbanhelper_adapter.conf", DEFAULT_PREFS
@@ -114,6 +132,26 @@ class Core(CorePluginBase):
         status = {}
         status[CONF_KEY_BLOCKLIST] = self.blocklist
         return status
+
+    @export
+    def get_network_config(self):
+        """获取网络配置"""
+        network = Network(self.deluge_core)
+        out = NetworkData(
+            listen_port=network.get_listen_port()
+        )
+        return out.dist()
+
+    @export
+    def set_network_config(self, config):
+        """设置网络配置"""
+        data = NetworkData(**config)
+        network = Network(self.deluge_core)
+        if not data:
+            return
+        if data.listen_port:
+            network.set_listen_port(data.listen_port)
+        return {}
 
     @export
     def get_active_torrents_info(self):
